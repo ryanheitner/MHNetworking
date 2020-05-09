@@ -23,3 +23,5 @@ c. a feature of your choice (surprise us)
 Note: Please use this URL
 (http://www.mocky.io/v2/5e0af46b3300007e1120a7ef) in order to
 test your redirect feature.
+
+Thank You
