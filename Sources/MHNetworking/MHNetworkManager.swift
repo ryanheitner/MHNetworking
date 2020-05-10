@@ -16,36 +16,29 @@ public enum MHError: Error {
     case invalidResponse(response:Int)
     case invalidData
 }
+
 extension MHError {
     var errorDescription : String {
         switch self {
-        case .tooManyRedirects: return "The number of 301/302 redirects has exceeded the limit"
+        case .tooManyRedirects: return "The number of 301 redirects has exceeded the limit"
         case .circularRedirect: return "Circular redirect path detected"
         case .unableToComplete: return "Unable to complete your request. Please check your internet connection."
         case .invalidResponse:  return "Invalid response from the server. Please try again."
         case .invalidData:      return "The data received from the server was invalid. Please try again."
         }
     }
-    
-}
-
-struct API {
-    static let baseURL = URL(string: "http://www.mocky.io/v2/")!
 }
 
 // The network manager has the following features
-// 1) Limit the number of 301/302 redirects for get requests
+// 1) Limit the number of 301 redirects for get requests
 // 2) Detect Circular Redirects, this can happen if a webpage redirects to another which in turn redirects back to itself or similar
 public class MHNetworkManager : NSObject {
-    
-    public static let shared = MHNetworkManager(baseURL: API.baseURL)
-    
-    public let baseURL : URL
     
     public typealias SuccessHandler = (_ json : [String:Any]) -> ()
     public typealias ErrorHandler = (_ error : MHError) -> ()
     
-    // pprivate vars
+    // MARK: Private Vars
+    private var baseURL : URL?
     private var redirectCount = 0
     private var redirectLimit = Int.max // unlimited redirects as default
     private var circularRedirectDetected = false
@@ -57,7 +50,7 @@ public class MHNetworkManager : NSObject {
     
     private var urlsVisitedSet : Set<URL> = []
     private var urlSession : URLSession?
-
+    
     
     
     lazy var defaultSession:URLSession = {
@@ -67,36 +60,43 @@ public class MHNetworkManager : NSObject {
         delegateQueue.qualityOfService = .utility
         return URLSession(configuration: config, delegate: self, delegateQueue: delegateQueue)
     }()
-
-
-    private init(baseURL:URL){
-        self.baseURL = baseURL
+    
+    // URL For Testing
+    private let defaultURL : URL = URL(string: "http://www.mocky.io/v2/")!
+    
+    public init(baseURL:URL? = nil){
+        super.init()
+        self.baseURL = baseURL ?? defaultURL
+        self.redirectCount = 0
+        self.redirectLimit = Int.max
+        self.circularRedirectDetected = false
+        urlsVisitedSet.removeAll()
     }
     
     
     // redirect limit is optional, it will limit the number of 301/302 redirects
     public func getRequest(urlString:String,
-                    success: @escaping (SuccessHandler),
-                    failure: @escaping (ErrorHandler),
-                    redirectLimit:Int = Int.max)
-       {
+                           success: @escaping (SuccessHandler),
+                           failure: @escaping (ErrorHandler),
+                           redirectLimit:Int = Int.max)
+    {
         self.redirectLimit = redirectLimit
-
+        
         var myUrlString = urlString
         #if DEBUG
-//        It is difficult to unit test for a circular redirect because this is dependent on the HTTP Server
-//        To allow this we have a keyword at the end of the URL
+        //        It is difficult to unit test for a circular redirect because this is dependent on the HTTP Server
+        //        To allow this we have a keyword at the end of the URL
         if urlString.hasSuffix(MHConstants.circularRedirectKeyword) {
             mockCircularRedirectURL = true
             myUrlString = String(urlString.dropLast(MHConstants.circularRedirectKeyword.count))
         }
         #endif
         
-        let url = self.baseURL.appendingPathComponent(myUrlString)
-
+        let url = self.baseURL!.appendingPathComponent(myUrlString)
+        
         // Keep track of URLs called to detect circular redirects
+        
         urlsVisitedSet.insert(url)
-
         let urlRequest = URLRequest(url: url)
         let task = defaultSession.dataTask(with: urlRequest, completionHandler: { (data,response,error) -> () in
             
@@ -116,9 +116,9 @@ public class MHNetworkManager : NSObject {
             // we escape with a error code
             guard (200...299 ~= response.statusCode) else {
                 switch response.statusCode {
-                case 301,302:
+                case 301:
                     if self.redirectCount >= self.redirectLimit {
-                       failure(.tooManyRedirects)
+                        failure(.tooManyRedirects)
                     } else if self.circularRedirectDetected {
                         failure(.circularRedirect)
                     } else {
@@ -149,47 +149,59 @@ public class MHNetworkManager : NSObject {
     
 }
 
-// Delegate to detect redirects
+// Delegate URLSessionTaskDelegate detects 301 redirects
 extension MHNetworkManager : URLSessionTaskDelegate {
-
+    
     public func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
-        
-        if 301...302 ~= response.statusCode {
-            // If the redirect URL is already a  url which we have visited this means we have a circular reference and should exit
-            if let nextUrl = request.url {
-                if urlsVisitedSet.contains(nextUrl) {
-                    self.circularRedirectDetected = true
-                    completionHandler(nil)
-                    return
-                }
-            }
-            redirectCount += 1
-            if redirectCount >= redirectLimit {
-                completionHandler(nil)
-                return
-            }
-            #if DEBUG
-            if (request.url != nil)
-                ,mockCircularRedirectURL == true
-                ,request.url!.absoluteString.hasSuffix(MHConstants.circularRedirectURLFrom) {
-                                
-                var newRequest = request
-                let urlString = request.url!.absoluteString.replacingOccurrences(of: MHConstants.circularRedirectURLFrom, with: MHConstants.circularRedirectURLTo)
-                newRequest.url = URL(string: urlString)
-                completionHandler(newRequest)
-                return
-
-            }
-            #endif
+        // 301 Moved Permanently we are not handling any other codes
+        guard response.statusCode == 301 else {
+            completionHandler(request)
+            return
         }
         
+//
+// MARK: Detect Circular References
+//
+        // If the redirect URL is already a url which we have visited this means we have a circular reference and should exit
+        if let nextUrl = request.url ,
+            urlsVisitedSet.contains(nextUrl) {
+            self.circularRedirectDetected = true
+            completionHandler(nil)
+            return
+        }
+//
+// MARK: Test if Redirect limit has been exceeded
+//
+        if redirectCount >= redirectLimit {
+            completionHandler(nil)
+            return
+        }
+        
+        
+        // This debug code is to unit test circular url calls
+        // since it is difficult to test this without setting up an http webserver
+        // we have a way of forcing a circular reference to occur
+        #if DEBUG
+        if (request.url != nil)
+            ,mockCircularRedirectURL == true
+            ,request.url!.absoluteString.hasSuffix(MHConstants.circularRedirectURLFrom) {
+            
+            var newRequest = request
+            let urlString = request.url!.absoluteString.replacingOccurrences(of: MHConstants.circularRedirectURLFrom, with: MHConstants.circularRedirectURLTo)
+            newRequest.url = URL(string: urlString)
+            completionHandler(newRequest)
+            return
+            
+        }
+        #endif
+        
+        //
+        // MARK: Save vistited urls to Detect a Circular Reference
+        //
         if (request.url != nil) {
             urlsVisitedSet.insert(request.url!)
         }
-
+        
         completionHandler(request)
     }
-    
 }
-
-
