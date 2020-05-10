@@ -4,7 +4,8 @@
 # It has two features
 # 1) Limit the number of redirects
 # 2) Detect Circular References
-# Trying to Get Travis to Work
+
+
 Home assignment:
 1. Create a simple HTTP network framework written in Swift,
 which must include the following:
