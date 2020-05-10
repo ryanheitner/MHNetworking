@@ -1,0 +1,9 @@
+os: osx
+osx_image: xcode11.4	
+language: swift
+env:
+  - PROJECT_NAME=MHNetworking
+install: (cd $PROJECT_NAME && swift package update)
+script:
+  - (cd $PROJECT_NAME && swift build)
+  - (cd $PROJECT_NAME && swift test)
