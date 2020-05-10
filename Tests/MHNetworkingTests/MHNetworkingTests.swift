@@ -2,20 +2,21 @@ import XCTest
 @testable import MHNetworking
 
 final class MHNetworkingTests: XCTestCase {
-    func test2() {
-        print("test2")
+    let startURLString = "5e0af46b3300007e1120a7ef"
+    let myID = "rhe01:"
 
+    func test2() {
+        print("start:\(#function)")
         // We expect to Get an error too many redirects
         let numberOfRedirectsAllowed = 2
         let exp = self.expectation(description: "lowExpexctation")
-        let urlString = "5e0af46b3300007e1120a7ef"
-        MHNetworkManager().getRequest(urlString: urlString, success: { responseDictionary in
-            print("rhe01 success 2 \(responseDictionary)")
+        MHNetworkManager().getRequest(urlString: startURLString, success: { responseDictionary in
+            print("\(self.myID) success \(#function) \(responseDictionary)")
             exp.fulfill()
             XCTAssert(!responseDictionary.isEmpty)
 
         }, failure: { error in
-            print("rhe01 fail 2 \(error)")
+            print("\(self.myID) fail \(#function) \(error)")
             var isCorrectError = false
             if case MHError.tooManyRedirects = error {
                 isCorrectError = true
@@ -28,24 +29,22 @@ final class MHNetworkingTests: XCTestCase {
     }
     func test3() {
         // We expect to no error
-        print("test3")
-
+        print("start:\(#function)")
         let numberOfRedirectsAllowed = 7
         let exp = self.expectation(description: "highExpectation")
-        let urlString = "5e0af46b3300007e1120a7ef"
-        MHNetworkManager().getRequest(urlString: urlString, success: { responseDictionary in
-            print("rhe01 success 3 \(responseDictionary)")
+        MHNetworkManager().getRequest(urlString: startURLString, success: { responseDictionary in
+            print("\(self.myID) success \(#function) \(responseDictionary)")
             exp.fulfill()
             XCTAssert(!responseDictionary.isEmpty)
 
         }, failure: { error in
-            print("rhe01 fail 3 \(error)")
+            print("\(self.myID) fail \(#function) \(error)")
             var isCorrectError = false
             if case MHError.tooManyRedirects = error {
                 isCorrectError = true
             }
             exp.fulfill()
-            XCTAssertFalse(!isCorrectError, "rhe01 test3 error \(error.errorDescription) : \(isCorrectError)")
+            XCTAssertFalse(!isCorrectError, "\(self.myID) error \(#function) \(error.errorDescription) : \(isCorrectError)")
         }, redirectLimit: numberOfRedirectsAllowed)
 
         waitForExpectations(timeout: 5, handler: nil)
@@ -55,23 +54,22 @@ final class MHNetworkingTests: XCTestCase {
         // we force this by adding the keyword to the end of the url
         // This is not really a very good test , would be better If we had a server with a circular reference
 
-        print("test1")
+        print("start:\(#function)")
         let numberOfRedirectsAllowed = 7
         let exp = self.expectation(description: "highExpectation")
-        let urlString = "5e0af46b3300007e1120a7ef" + MHConstants.circularRedirectKeyword
-        MHNetworkManager().getRequest(urlString: urlString, success: { responseDictionary in
-            print("rhe01 success 1 \(responseDictionary)")
+        MHNetworkManager().getRequest(urlString: startURLString, success: { responseDictionary in
+            print("\(self.myID) success \(#function) \(responseDictionary)")
             exp.fulfill()
             XCTAssert(!responseDictionary.isEmpty)
 
         }, failure: { error in
-            print("rhe01 fail 1 \(error)")
+            print("\(self.myID) fail \(#function) \(error)")
             var isCorrectError = false
             if case MHError.circularRedirect = error {
                 isCorrectError = true
             }
             exp.fulfill()
-            XCTAssertTrue(isCorrectError, "rhe01 test1 error \(error.errorDescription) : \(isCorrectError)")
+            XCTAssertTrue(isCorrectError, "\(self.myID) error \(#function) \(error.errorDescription) : \(isCorrectError)")
         }, redirectLimit: numberOfRedirectsAllowed)
 
         waitForExpectations(timeout: 5, handler: nil)
