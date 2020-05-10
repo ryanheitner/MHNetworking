@@ -1,17 +1,6 @@
-os: osx
 language: swift
-git:
-  depth: 1
-stages:
-  - name: test
-branches:
-  only:
-    - ci
-
-jobs:
-  include:
-    - stage: test
-      name: Swift Build (Swift Package Manager)
-      osx_image: xcode11.4
-      script: swift build
-
+os: osx
+osx_image: xcode11.4
+script:
+- swift build
+- swift test
