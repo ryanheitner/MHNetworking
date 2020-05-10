@@ -158,7 +158,7 @@ extension MHNetworkManager : URLSessionTaskDelegate {
             completionHandler(request)
             return
         }
-        
+      
 //
 // MARK: Detect Circular References
 //
@@ -172,6 +172,7 @@ extension MHNetworkManager : URLSessionTaskDelegate {
 //
 // MARK: Test if Redirect limit has been exceeded
 //
+        redirectCount += 1
         if redirectCount >= redirectLimit {
             completionHandler(nil)
             return
