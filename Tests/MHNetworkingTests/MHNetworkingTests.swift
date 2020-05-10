@@ -44,7 +44,7 @@ final class MHNetworkingTests: XCTestCase {
                 isCorrectError = true
             }
             exp.fulfill()
-            XCTAssertTrue(isCorrectError)
+            XCTAssertTrue(isCorrectError, "\(self.myID) error \(#function) \(error.errorDescription) : \(isCorrectError)")
         }, redirectLimit: numberOfRedirectsAllowed)
 
         waitForExpectations(timeout: 5, handler: nil)
@@ -61,10 +61,6 @@ final class MHNetworkingTests: XCTestCase {
 
         }, failure: { error in
             print("\(self.myID) fail \(#function) \(error)")
-            var isCorrectError = false
-            if case MHError.tooManyRedirects = error {
-                isCorrectError = true
-            }
             exp.fulfill()
             XCTAssertTrue(false,"\(self.myID) \(#function) is supposed to succeed but has error \(error)")
         }, redirectLimit: numberOfRedirectsAllowed)
